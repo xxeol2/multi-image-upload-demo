@@ -32,18 +32,24 @@ public class ImageStorageService {
     }
 
     private List<String> extractUploadedFileUrls(List<CompletableFuture<String>> futures) {
+        waitForAllJobFinished(futures);
         try {
             return futures.stream()
                 .map(CompletableFuture::join)
                 .map(this::convertFileNameToUrl)
                 .toList();
         } catch (CompletionException e) {
+            deleteUploadedFiles(futures);
             if (e.getCause() instanceof ImageStorageException) {
-                deleteUploadedFiles(futures);
                 throw (ImageStorageException) e.getCause();
             }
             throw new RuntimeException(e.getCause());
         }
+    }
+
+    private void waitForAllJobFinished(List<CompletableFuture<String>> futures) {
+        CompletableFuture<Void> allOf = CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
+        allOf.join();
     }
 
     private void deleteUploadedFiles(List<CompletableFuture<String>> futures) {
