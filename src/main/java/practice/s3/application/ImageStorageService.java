@@ -2,8 +2,8 @@ package practice.s3.application;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -24,48 +24,35 @@ public class ImageStorageService {
     }
 
     public List<String> uploadFiles(MultipartFile[] imageFiles) {
-        AtomicReference<ImageStorageException> exceptionHolder = new AtomicReference<>();
-        List<String> fileNames = uploadFilesInParallel(imageFiles, exceptionHolder);
-
-        if (exceptionHolder.get() != null) {
-            deleteUploadedFiles(fileNames);
-            throw exceptionHolder.get();
-        }
-
-        return convertToUrl(fileNames);
-    }
-
-    private List<String> uploadFilesInParallel(MultipartFile[] imageFiles,
-                                               AtomicReference<ImageStorageException> exceptionHolder) {
-        return Arrays.stream(imageFiles)
-            .parallel()
-            .map(file -> uploadSingleFile(file, exceptionHolder))
-            .filter(Objects::nonNull)
+        List<CompletableFuture<String>> futures = Arrays.stream(imageFiles)
+            .map(file -> CompletableFuture.supplyAsync(() -> imageStorageClient.upload(file)))
             .toList();
+
+        return extractUploadedFileUrls(futures);
     }
 
-    private String uploadSingleFile(MultipartFile file, AtomicReference<ImageStorageException> exceptionHolder) {
-        if (exceptionHolder.get() != null) {
-            return null;
-        }
+    private List<String> extractUploadedFileUrls(List<CompletableFuture<String>> futures) {
         try {
-            return imageStorageClient.upload(file);
-        } catch (ImageStorageException e) {
-            exceptionHolder.set(e);
-            return null;
+            return futures.stream()
+                .map(CompletableFuture::join)
+                .map(this::convertFileNameToUrl)
+                .toList();
+        } catch (CompletionException e) {
+            if (e.getCause() instanceof ImageStorageException) {
+                deleteUploadedFiles(futures);
+                throw (ImageStorageException) e.getCause();
+            }
+            throw new RuntimeException(e.getCause());
         }
     }
 
-    private void deleteUploadedFiles(List<String> fileNames) {
-        fileNames.stream()
+    private void deleteUploadedFiles(List<CompletableFuture<String>> futures) {
+        futures.stream()
+            .filter(CompletableFuture::isDone)
+            .filter(future -> !future.isCompletedExceptionally())
+            .map(CompletableFuture::join)
             .parallel()
             .forEach(imageStorageClient::delete);
-    }
-
-    private List<String> convertToUrl(List<String> fileNames) {
-        return fileNames.stream()
-            .map(this::convertFileNameToUrl)
-            .toList();
     }
 
     private String convertFileNameToUrl(String fileName) {
