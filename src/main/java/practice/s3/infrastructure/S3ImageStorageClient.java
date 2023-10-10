@@ -30,7 +30,9 @@ public class S3ImageStorageClient implements ImageStorageClient {
         validateImageFile(file);
         String fileName = generateFileName();
         try {
+            log.info("[S3 File Upload] 시작 :{}", fileName);
             s3Client.putObject(bucket, fileName, file.getInputStream(), getObjectMetadata(file));
+            log.info("[S3 File Upload] 완료 :{}", fileName);
             return fileName;
         } catch (SdkClientException | IOException e) {
             throw new ImageStorageException("[S3 File Upload 실패]", e);
