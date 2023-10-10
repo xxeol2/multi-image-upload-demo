@@ -61,6 +61,7 @@ public class S3ImageStorageClient implements ImageStorageClient {
     public void delete(String fileName) {
         try {
             s3Client.deleteObject(bucket, fileName);
+            log.info("[S3 File Delete] {}", fileName);
         } catch (SdkClientException e) {
             throw new ImageStorageException("[S3 File Delete 실패]", e);
         }
