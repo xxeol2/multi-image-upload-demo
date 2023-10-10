@@ -1,9 +1,9 @@
 package practice.s3.application;
 
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.atomic.AtomicReference;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -24,18 +24,42 @@ public class ImageStorageService {
     }
 
     public List<String> uploadFiles(MultipartFile[] imageFiles) {
-        List<String> fileNames = Collections.synchronizedList(new ArrayList<>());
-        try {
-            Arrays.stream(imageFiles)
-                .parallel()
-                .map(imageStorageClient::upload)
-                .forEach(fileNames::add);
-            return convertToUrl(fileNames);
-        } catch (ImageStorageException e) {
-            log.info("[Catch Exception] uploadedFileSize: {}", fileNames.size());
-            fileNames.forEach(imageStorageClient::delete);
-            throw e;
+        AtomicReference<ImageStorageException> exceptionHolder = new AtomicReference<>();
+        List<String> fileNames = uploadFilesInParallel(imageFiles, exceptionHolder);
+
+        if (exceptionHolder.get() != null) {
+            deleteUploadedFiles(fileNames);
+            throw exceptionHolder.get();
         }
+
+        return convertToUrl(fileNames);
+    }
+
+    private List<String> uploadFilesInParallel(MultipartFile[] imageFiles,
+                                               AtomicReference<ImageStorageException> exceptionHolder) {
+        return Arrays.stream(imageFiles)
+            .parallel()
+            .map(file -> uploadSingleFile(file, exceptionHolder))
+            .filter(Objects::nonNull)
+            .toList();
+    }
+
+    private String uploadSingleFile(MultipartFile file, AtomicReference<ImageStorageException> exceptionHolder) {
+        if (exceptionHolder.get() != null) {
+            return null;
+        }
+        try {
+            return imageStorageClient.upload(file);
+        } catch (ImageStorageException e) {
+            exceptionHolder.set(e);
+            return null;
+        }
+    }
+
+    private void deleteUploadedFiles(List<String> fileNames) {
+        fileNames.stream()
+            .parallel()
+            .forEach(imageStorageClient::delete);
     }
 
     private List<String> convertToUrl(List<String> fileNames) {
