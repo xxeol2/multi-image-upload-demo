@@ -27,7 +27,6 @@ public class S3ImageStorageClient implements ImageStorageClient {
 
     @Override
     public String upload(MultipartFile file) {
-        validateImageFile(file);
         String fileName = generateFileName();
         try {
             log.info("[S3 File Upload] 시작 :{}", fileName);
@@ -36,13 +35,6 @@ public class S3ImageStorageClient implements ImageStorageClient {
             return fileName;
         } catch (SdkClientException | IOException e) {
             throw new ImageStorageException("[S3 File Upload 실패]", e);
-        }
-    }
-
-    private void validateImageFile(MultipartFile file) {
-        String contentType = file.getContentType();
-        if (contentType == null || !contentType.startsWith("image/")) {
-            throw new ImageStorageException("[S3 File Upload 실패] image 형식이 아닙니다.");
         }
     }
 
