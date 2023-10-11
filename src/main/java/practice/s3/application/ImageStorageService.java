@@ -35,7 +35,8 @@ public class ImageStorageService {
             .map(file -> CompletableFuture.supplyAsync(() -> storageClient.upload(file), executor))
             .toList();
 
-        return extractResponse(futures);
+        List<String> fileNames = gatherFileNamesFromFutures(futures);
+        return convertFileNamesToResponse(fileNames);
     }
 
     private void validate(MultipartFile[] imageFiles) {
@@ -53,7 +54,7 @@ public class ImageStorageService {
         }
     }
 
-    private ImageUploadResponse extractResponse(List<CompletableFuture<String>> futures) {
+    private List<String> gatherFileNamesFromFutures(List<CompletableFuture<String>> futures) {
         List<String> fileNames = new ArrayList<>();
         AtomicBoolean catchException = new AtomicBoolean(false);
         futures.forEach(future -> {
@@ -64,7 +65,7 @@ public class ImageStorageService {
             }
         });
         handleException(catchException, fileNames);
-        return convertFileNamesToResponse(fileNames);
+        return fileNames;
     }
 
     private void handleException(AtomicBoolean catchException, List<String> fileNames) {
