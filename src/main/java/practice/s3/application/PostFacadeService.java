@@ -16,8 +16,8 @@ public class PostFacadeService {
     private final ImageStorageService imageStorageService;
 
     @Timer
-    public PostCreateResponse createPost(PostCreateRequest postRequest, MultipartFile[] imageRequests) {
-        ImageUploadResponse response = imageStorageService.uploadFiles(imageRequests);
+    public PostCreateResponse createPost(PostCreateRequest postRequest, MultipartFile[] imageFiles) {
+        ImageUploadResponse response = imageStorageService.uploadFiles(imageFiles);
         try {
             return postService.createPost(postRequest, response.urls());
         } catch (Exception e) {
