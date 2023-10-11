@@ -13,7 +13,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 import practice.s3.application.ImageStorageClient;
-import practice.s3.exception.ImageStorageException;
+import practice.s3.exception.InternalServerException;
 
 @Component
 @RequiredArgsConstructor
@@ -34,7 +34,8 @@ public class S3ImageStorageClient implements ImageStorageClient {
             log.info("[S3 File Upload] 완료 :{}", fileName);
             return fileName;
         } catch (SdkClientException | IOException e) {
-            throw new ImageStorageException("[S3 File Upload 실패]", e);
+            log.error("[S3 File Upload 실패]", e);
+            throw new InternalServerException("[S3 File Upload 실패]", e);
         }
     }
 
@@ -55,7 +56,8 @@ public class S3ImageStorageClient implements ImageStorageClient {
             s3Client.deleteObject(bucket, fileName);
             log.info("[S3 File Delete] {}", fileName);
         } catch (SdkClientException e) {
-            throw new ImageStorageException("[S3 File Delete 실패]", e);
+            log.error("[S3 File Delete 실패]", e);
+            throw new InternalServerException("[S3 File Delete 실패]", e);
         }
     }
 }

@@ -13,7 +13,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import practice.s3.dto.ImageUploadResponse;
-import practice.s3.exception.ImageStorageException;
+import practice.s3.exception.BadRequestException;
+import practice.s3.exception.InternalServerException;
 
 @Service
 @Slf4j
@@ -39,7 +40,7 @@ public class ImageStorageService {
 
     private void validate(MultipartFile[] imageFiles) {
         if (imageFiles.length > MAX_IMAGE_LENGTH) {
-            throw new ImageStorageException("[File Upload 실패] 파일 수가 너무 많습니다.");
+            throw new BadRequestException("파일 수가 너무 많습니다.");
         }
         Arrays.stream(imageFiles)
             .forEach(this::validateImageFile);
@@ -48,7 +49,7 @@ public class ImageStorageService {
     private void validateImageFile(MultipartFile file) {
         String contentType = file.getContentType();
         if (contentType == null || !contentType.startsWith("image/")) {
-            throw new ImageStorageException("[File Upload 실패] image 형식이 아닙니다.");
+            throw new BadRequestException("image 형식이 아닙니다.");
         }
     }
 
@@ -62,13 +63,15 @@ public class ImageStorageService {
                 catchException.set(true);
             }
         });
+        handleException(catchException, fileNames);
+        return convertFileNamesToResponse(fileNames);
+    }
 
+    private void handleException(AtomicBoolean catchException, List<String> fileNames) {
         if (catchException.get()) {
             executor.execute(() -> deleteFiles(fileNames));
-            throw new ImageStorageException("이미지 업로드시 예외가 발생했습니다.");
+            throw new InternalServerException("이미지 업로드시 예외가 발생했습니다.");
         }
-
-        return convertFileNamesToResponse(fileNames);
     }
 
     private ImageUploadResponse convertFileNamesToResponse(List<String> fileNames) {
