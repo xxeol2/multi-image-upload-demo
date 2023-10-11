@@ -6,7 +6,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 //@Component
 @Slf4j
-public class MockImageStorageClient implements ImageStorageClient {
+public class MockStorageClient implements StorageClient {
 
     @Override
     public String upload(MultipartFile file) {

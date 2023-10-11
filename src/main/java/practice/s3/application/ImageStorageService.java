@@ -22,7 +22,7 @@ public class ImageStorageService {
 
     private static final int MAX_IMAGE_LENGTH = 10;
 
-    private final ImageStorageClient imageStorageClient;
+    private final StorageClient storageClient;
     private final Executor executor;
 
     @Value("${s3.base-url}")
@@ -64,7 +64,7 @@ public class ImageStorageService {
             return null;
         }
         try {
-            return imageStorageClient.upload(file);
+            return storageClient.upload(file);
         } catch (Exception e) {
             exceptionHolder.set(true);
             return null;
@@ -89,6 +89,6 @@ public class ImageStorageService {
     public void deleteFiles(List<String> fileNames) {
         fileNames
             .parallelStream()
-            .forEach(imageStorageClient::delete);
+            .forEach(storageClient::delete);
     }
 }
