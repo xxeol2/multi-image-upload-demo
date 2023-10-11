@@ -12,13 +12,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
-import practice.s3.application.ImageStorageClient;
+import practice.s3.application.StorageClient;
 import practice.s3.exception.InternalServerException;
 
 @Component
 @RequiredArgsConstructor
 @Slf4j
-public class S3ImageStorageClient implements ImageStorageClient {
+public class S3StorageClient implements StorageClient {
 
     private final AmazonS3 s3Client;
 
