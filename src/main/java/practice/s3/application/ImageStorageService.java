@@ -5,7 +5,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -15,25 +17,23 @@ import practice.s3.exception.ImageStorageException;
 
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class ImageStorageService {
 
     private static final int MAX_IMAGE_LENGTH = 10;
 
     private final ImageStorageClient imageStorageClient;
+    private final Executor executor;
 
     @Value("${s3.base-url}")
     private String baseUrl;
 
-    public ImageStorageService(ImageStorageClient imageStorageClient) {
-        this.imageStorageClient = imageStorageClient;
-    }
-
     public ImageUploadResponse uploadFiles(MultipartFile[] imageFiles) {
         validate(imageFiles);
         List<CompletableFuture<String>> futures = Arrays.stream(imageFiles)
-            .map(file -> CompletableFuture.supplyAsync(() -> imageStorageClient.upload(file)))
+            .map(file -> CompletableFuture.supplyAsync(() -> imageStorageClient.upload(file), executor))
             .toList();
-        
+
         return extractResponse(futures);
     }
 
@@ -64,7 +64,7 @@ public class ImageStorageService {
         });
 
         if (catchException.get()) {
-            deleteFiles(fileNames);
+            executor.execute(() -> deleteFiles(fileNames));
             throw new ImageStorageException("이미지 업로드시 예외가 발생했습니다.");
         }
 
