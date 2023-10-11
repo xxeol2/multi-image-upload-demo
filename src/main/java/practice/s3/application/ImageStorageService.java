@@ -4,7 +4,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.Executor;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -12,7 +12,8 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import practice.s3.dto.ImageUploadResponse;
-import practice.s3.exception.ImageStorageException;
+import practice.s3.exception.BadRequestException;
+import practice.s3.exception.InternalServerException;
 
 @Service
 @RequiredArgsConstructor
@@ -29,20 +30,15 @@ public class ImageStorageService {
 
     public ImageUploadResponse uploadFiles(MultipartFile[] imageFiles) {
         validate(imageFiles);
-        AtomicReference<ImageStorageException> exceptionHolder = new AtomicReference<>();
-        List<String> fileNames = uploadFilesInParallel(imageFiles, exceptionHolder);
-
-        if (exceptionHolder.get() != null) {
-            executor.execute(() -> deleteUploadedFiles(fileNames));
-            throw exceptionHolder.get();
-        }
-
+        AtomicBoolean catchException = new AtomicBoolean(false);
+        List<String> fileNames = uploadFilesInParallel(imageFiles, catchException);
+        handleException(catchException, fileNames);
         return convertFileNamesToResponse(fileNames);
     }
 
     private void validate(MultipartFile[] imageFiles) {
         if (imageFiles.length > MAX_IMAGE_LENGTH) {
-            throw new ImageStorageException("[File Upload 실패] 파일 수가 너무 많습니다.");
+            throw new BadRequestException("파일 수가 너무 많습니다.");
         }
         Arrays.stream(imageFiles)
             .forEach(this::validateImageFile);
@@ -51,35 +47,35 @@ public class ImageStorageService {
     private void validateImageFile(MultipartFile file) {
         String contentType = file.getContentType();
         if (contentType == null || !contentType.startsWith("image/")) {
-            throw new ImageStorageException("[File Upload 실패] image 형식이 아닙니다.");
+            throw new BadRequestException("image 형식이 아닙니다.");
         }
     }
 
-    private List<String> uploadFilesInParallel(MultipartFile[] imageFiles,
-                                               AtomicReference<ImageStorageException> exceptionHolder) {
+    private List<String> uploadFilesInParallel(MultipartFile[] imageFiles, AtomicBoolean catchException) {
         return Arrays.stream(imageFiles)
             .parallel()
-            .map(file -> uploadSingleFile(file, exceptionHolder))
+            .map(file -> uploadSingleFile(file, catchException))
             .filter(Objects::nonNull)
             .toList();
     }
 
-    private String uploadSingleFile(MultipartFile file, AtomicReference<ImageStorageException> exceptionHolder) {
-        if (exceptionHolder.get() != null) {
+    private String uploadSingleFile(MultipartFile file, AtomicBoolean exceptionHolder) {
+        if (exceptionHolder.get()) {
             return null;
         }
         try {
             return imageStorageClient.upload(file);
-        } catch (ImageStorageException e) {
-            exceptionHolder.set(e);
+        } catch (Exception e) {
+            exceptionHolder.set(true);
             return null;
         }
     }
 
-    private void deleteUploadedFiles(List<String> fileNames) {
-        fileNames.stream()
-            .parallel()
-            .forEach(imageStorageClient::delete);
+    private void handleException(AtomicBoolean catchException, List<String> fileNames) {
+        if (catchException.get()) {
+            executor.execute(() -> deleteFiles(fileNames));
+            throw new InternalServerException("이미지 업로드시 예외가 발생했습니다.");
+        }
     }
 
     private ImageUploadResponse convertFileNamesToResponse(List<String> fileNames) {
