@@ -3,12 +3,15 @@ package practice.s3.application;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import practice.s3.dto.ImageUploadResponse;
 import practice.s3.exception.ImageStorageException;
 
 @Service
@@ -19,21 +22,22 @@ public class ImageStorageService {
     private static final int MAX_IMAGE_LENGTH = 10;
 
     private final ImageStorageClient imageStorageClient;
+    private final Executor executor;
 
     @Value("${s3.base-url}")
     private String baseUrl;
 
-    public List<String> uploadFiles(MultipartFile[] imageFiles) {
+    public ImageUploadResponse uploadFiles(MultipartFile[] imageFiles) {
         validate(imageFiles);
         AtomicReference<ImageStorageException> exceptionHolder = new AtomicReference<>();
         List<String> fileNames = uploadFilesInParallel(imageFiles, exceptionHolder);
 
         if (exceptionHolder.get() != null) {
-            deleteUploadedFiles(fileNames);
+            executor.execute(() -> deleteUploadedFiles(fileNames));
             throw exceptionHolder.get();
         }
 
-        return convertToUrl(fileNames);
+        return convertFileNamesToResponse(fileNames);
     }
 
     private void validate(MultipartFile[] imageFiles) {
@@ -78,13 +82,17 @@ public class ImageStorageService {
             .forEach(imageStorageClient::delete);
     }
 
-    private List<String> convertToUrl(List<String> fileNames) {
-        return fileNames.stream()
-            .map(this::convertFileNameToUrl)
+    private ImageUploadResponse convertFileNamesToResponse(List<String> fileNames) {
+        List<String> urls = fileNames.stream()
+            .map(fileName -> baseUrl + fileName)
             .toList();
+        return new ImageUploadResponse(urls, fileNames);
     }
 
-    private String convertFileNameToUrl(String fileName) {
-        return baseUrl + fileName;
+    @Async
+    public void deleteFiles(List<String> fileNames) {
+        fileNames
+            .parallelStream()
+            .forEach(imageStorageClient::delete);
     }
 }
