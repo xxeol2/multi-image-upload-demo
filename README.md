@@ -2,12 +2,12 @@
 
 이 저장소는 `다중 이미지 업로드 최적화: 병렬 스트림과 CompletableFuture` 포스트의 예제 코드를 담고 있습니다.
 
-## 브랜치별 예제 바로가기
-[순차적 업로드](https://github.com/xxeol2/s3-practice/tree/sequential)
+## 처리 방법별 예제 바로가기
 
-[병렬 스트림](https://github.com/xxeol2/s3-practice/tree/parallel)
+처리 방법별 코드는 각각의 브랜치에서 관리됩니다. ([순차적 업로드](https://github.com/xxeol2/s3-practice/tree/sequential) / [병렬 스트림](https://github.com/xxeol2/s3-practice/tree/parallel) / [CompletableFuture](https://github.com/xxeol2/s3-practice/tree/completablefuture))
 
-[CompletableFuture](https://github.com/xxeol2/s3-practice/tree/completablefuture)
+다중 이미지 처리 코드는 application 패키지의 `ImageStorageService.java`에서 확인할 수 있습니다.
+([순차적 업로드](https://github.com/xxeol2/s3-practice/blob/sequential/src/main/java/practice/s3/application/ImageStorageService.java) / [병렬 스트림](https://github.com/xxeol2/s3-practice/blob/parallel/src/main/java/practice/s3/application/ImageStorageService.java) / [CompletableFuture](https://github.com/xxeol2/s3-practice/blob/completablefuture/src/main/java/practice/s3/application/ImageStorageService.java))
 
 
 ## 주요 클래스 설명
