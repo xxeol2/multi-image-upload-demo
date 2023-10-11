@@ -1,6 +1,6 @@
-# 다중 이미지 업로드 최적화 :병렬 스트림과 CompletableFuture
+# 다중 이미지 업로드 최적화: 병렬 스트림과 CompletableFuture
 
-이 저장소는 `다중 이미지 업로드 최적화 :병렬 스트림과 CompletableFuture` 포스트의 예제 코드를 담고 있습니다.
+이 저장소는 `다중 이미지 업로드 최적화: 병렬 스트림과 CompletableFuture` 포스트의 예제 코드를 담고 있습니다.
 
 ## 브랜치별 예제 바로가기
 [순차적 업로드](https://github.com/xxeol2/s3-practice/tree/sequential)
@@ -16,6 +16,8 @@
 - `PostFacadeService`는 전체 이미지 파일 업로드를 `ImageStorageService`에 요청합니다.
 - `ImageStorageService`는 각 이미지 파일 업로드를 `StorageClient`에 요청합니다.
 - 이미지 업로드가 성공하면, `PostFacadeService`는 포스트 저장을 `PostService`에 요청합니다.
+
+**🗳️ 실제 s3 업로드 구현 코드는 [S3StorageClient](https://github.com/xxeol2/s3-practice/blob/main/src/main/java/practice/s3/infrastructure/S3StorageClient.java)에 있습니다.**
 
 ## 설정 (application.yml)
 
