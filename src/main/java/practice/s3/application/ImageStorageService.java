@@ -1,9 +1,11 @@
 package practice.s3.application;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -16,7 +18,6 @@ import practice.s3.exception.ImageStorageException;
 public class ImageStorageService {
 
     private static final int MAX_IMAGE_LENGTH = 10;
-    private static final long MAX_IMAGE_SIZE_BYTES = 1024 * 1024; // 1MB
 
     private final ImageStorageClient imageStorageClient;
 
@@ -32,7 +33,7 @@ public class ImageStorageService {
         List<CompletableFuture<String>> futures = Arrays.stream(imageFiles)
             .map(file -> CompletableFuture.supplyAsync(() -> imageStorageClient.upload(file)))
             .toList();
-
+        
         return extractResponse(futures);
     }
 
@@ -40,10 +41,8 @@ public class ImageStorageService {
         if (imageFiles.length > MAX_IMAGE_LENGTH) {
             throw new ImageStorageException("[File Upload 실패] 파일 수가 너무 많습니다.");
         }
-        for (MultipartFile file : imageFiles) {
-            validateImageFile(file);
-            validateImageSize(file);
-        }
+        Arrays.stream(imageFiles)
+            .forEach(this::validateImageFile);
     }
 
     private void validateImageFile(MultipartFile file) {
@@ -53,40 +52,23 @@ public class ImageStorageService {
         }
     }
 
-    private void validateImageSize(MultipartFile file) {
-        if (file.getSize() > MAX_IMAGE_SIZE_BYTES) {
-            throw new ImageStorageException("[File Upload 실패] 파일 크기가 1MB를 초과합니다.");
-        }
-    }
-
     private ImageUploadResponse extractResponse(List<CompletableFuture<String>> futures) {
-        waitForAllJobFinished(futures);
-        try {
-            List<String> fileNames = futures.stream()
-                .map(CompletableFuture::join)
-                .toList();
-            return convertFileNamesToResponse(fileNames);
-        } catch (CompletionException e) {
-            deleteUploadedFiles(futures);
-            if (e.getCause() instanceof ImageStorageException) {
-                throw (ImageStorageException) e.getCause();
+        List<String> fileNames = new ArrayList<>();
+        AtomicBoolean catchException = new AtomicBoolean(false);
+        futures.forEach(future -> {
+            try {
+                fileNames.add(future.join());
+            } catch (CompletionException e) {
+                catchException.set(true);
             }
-            throw new RuntimeException(e.getCause());
+        });
+
+        if (catchException.get()) {
+            deleteFiles(fileNames);
+            throw new ImageStorageException("이미지 업로드시 예외가 발생했습니다.");
         }
-    }
 
-    private void waitForAllJobFinished(List<CompletableFuture<String>> futures) {
-        CompletableFuture<Void> allOf = CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
-        allOf.join();
-    }
-
-    private void deleteUploadedFiles(List<CompletableFuture<String>> futures) {
-        futures.stream()
-            .filter(CompletableFuture::isDone)
-            .filter(future -> !future.isCompletedExceptionally())
-            .map(CompletableFuture::join)
-            .parallel()
-            .forEach(imageStorageClient::delete);
+        return convertFileNamesToResponse(fileNames);
     }
 
     private ImageUploadResponse convertFileNamesToResponse(List<String> fileNames) {
