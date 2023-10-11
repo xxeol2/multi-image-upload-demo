@@ -33,7 +33,7 @@ public class ImageStorageService {
                 .map(imageStorageClient::upload)
                 .forEach(fileNames::add);
             return convertFileNamesToResponse(fileNames);
-        } catch (BadRequestException e) {
+        } catch (Exception e) {
             executor.execute(() -> deleteFiles(fileNames));
             throw new InternalServerException("이미지 업로드시 예외가 발생했습니다.");
         }
