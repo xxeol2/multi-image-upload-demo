@@ -10,7 +10,8 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import practice.s3.dto.ImageUploadResponse;
-import practice.s3.exception.ImageStorageException;
+import practice.s3.exception.BadRequestException;
+import practice.s3.exception.InternalServerException;
 
 @Service
 @RequiredArgsConstructor
@@ -32,15 +33,15 @@ public class ImageStorageService {
                 .map(imageStorageClient::upload)
                 .forEach(fileNames::add);
             return convertFileNamesToResponse(fileNames);
-        } catch (ImageStorageException e) {
+        } catch (BadRequestException e) {
             executor.execute(() -> deleteFiles(fileNames));
-            throw e;
+            throw new InternalServerException("이미지 업로드시 예외가 발생했습니다.");
         }
     }
 
     private void validate(MultipartFile[] imageFiles) {
         if (imageFiles.length > MAX_IMAGE_LENGTH) {
-            throw new ImageStorageException("[File Upload 실패] 파일 수가 너무 많습니다.");
+            throw new BadRequestException("파일 수가 너무 많습니다.");
         }
         Arrays.stream(imageFiles)
             .forEach(this::validateImageFile);
@@ -49,7 +50,7 @@ public class ImageStorageService {
     private void validateImageFile(MultipartFile file) {
         String contentType = file.getContentType();
         if (contentType == null || !contentType.startsWith("image/")) {
-            throw new ImageStorageException("[File Upload 실패] image 형식이 아닙니다.");
+            throw new BadRequestException("image 형식이 아닙니다.");
         }
     }
 
