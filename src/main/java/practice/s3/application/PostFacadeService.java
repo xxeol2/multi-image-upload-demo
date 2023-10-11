@@ -1,10 +1,10 @@
 package practice.s3.application;
 
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import practice.s3.aop.Timer;
+import practice.s3.dto.ImageUploadResponse;
 import practice.s3.dto.PostCreateRequest;
 import practice.s3.dto.PostCreateResponse;
 
@@ -17,7 +17,12 @@ public class PostFacadeService {
 
     @Timer
     public PostCreateResponse createPost(PostCreateRequest postRequest, MultipartFile[] imageRequests) {
-        List<String> imageUrls = imageStorageService.uploadFiles(imageRequests);
-        return postService.createPost(postRequest, imageUrls);
+        ImageUploadResponse response = imageStorageService.uploadFiles(imageRequests);
+        try {
+            return postService.createPost(postRequest, response.urls());
+        } catch (Exception e) {
+            imageStorageService.deleteFiles(response.fileNames());
+            throw e;
+        }
     }
 }

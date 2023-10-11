@@ -3,10 +3,13 @@ package practice.s3.application;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.Executor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import practice.s3.dto.ImageUploadResponse;
 import practice.s3.exception.ImageStorageException;
 
 @Service
@@ -20,14 +23,14 @@ public class ImageStorageService {
     @Value("${s3.base-url}")
     private String baseUrl;
 
-    public List<String> uploadFiles(MultipartFile[] imageFiles) {
+    public ImageUploadResponse uploadFiles(MultipartFile[] imageFiles) {
         validate(imageFiles);
         List<String> fileNames = new ArrayList<>();
         try {
             Arrays.stream(imageFiles)
                 .map(imageStorageClient::upload)
                 .forEach(fileNames::add);
-            return convertToUrl(fileNames);
+            return convertFileNamesToResponse(fileNames);
         } catch (ImageStorageException e) {
             fileNames.forEach(imageStorageClient::delete);
             throw e;
@@ -49,13 +52,15 @@ public class ImageStorageService {
         }
     }
 
-    private List<String> convertToUrl(List<String> fileNames) {
-        return fileNames.stream()
-            .map(this::convertFileNameToUrl)
+    private ImageUploadResponse convertFileNamesToResponse(List<String> fileNames) {
+        List<String> urls = fileNames.stream()
+            .map(fileName -> baseUrl + fileName)
             .toList();
+        return new ImageUploadResponse(urls, fileNames);
     }
 
-    private String convertFileNameToUrl(String fileName) {
-        return baseUrl + fileName;
+    @Async
+    public void deleteFiles(List<String> fileNames) {
+        fileNames.forEach(imageStorageClient::delete);
     }
 }
