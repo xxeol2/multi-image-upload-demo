@@ -19,6 +19,7 @@ public class ImageStorageService {
     private static final int MAX_IMAGE_LENGTH = 10;
 
     private final ImageStorageClient imageStorageClient;
+    private final Executor executor;
 
     @Value("${s3.base-url}")
     private String baseUrl;
@@ -32,7 +33,7 @@ public class ImageStorageService {
                 .forEach(fileNames::add);
             return convertFileNamesToResponse(fileNames);
         } catch (ImageStorageException e) {
-            fileNames.forEach(imageStorageClient::delete);
+            executor.execute(() -> deleteFiles(fileNames));
             throw e;
         }
     }
