@@ -23,7 +23,7 @@ public class ImageStorageService {
 
     private static final int MAX_IMAGE_LENGTH = 10;
 
-    private final ImageStorageClient imageStorageClient;
+    private final StorageClient storageClient;
     private final Executor executor;
 
     @Value("${s3.base-url}")
@@ -32,7 +32,7 @@ public class ImageStorageService {
     public ImageUploadResponse uploadFiles(MultipartFile[] imageFiles) {
         validate(imageFiles);
         List<CompletableFuture<String>> futures = Arrays.stream(imageFiles)
-            .map(file -> CompletableFuture.supplyAsync(() -> imageStorageClient.upload(file), executor))
+            .map(file -> CompletableFuture.supplyAsync(() -> storageClient.upload(file), executor))
             .toList();
 
         return extractResponse(futures);
@@ -84,6 +84,6 @@ public class ImageStorageService {
     public void deleteFiles(List<String> fileNames) {
         fileNames.stream()
             .parallel()
-            .forEach(imageStorageClient::delete);
+            .forEach(storageClient::delete);
     }
 }
